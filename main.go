@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -151,20 +152,36 @@ func parseIntParam(r *http.Request, param string) (int, error) {
 }
 
 func main() {
-	log.Print("Hello world sample started.")
-
-	http.HandleFunc("/", defaultHander)
-	http.HandleFunc("/cpu", consumeCpuHandler)
-	http.HandleFunc("/memory", allocateMemoryHandler)
-	http.HandleFunc("/sleep", sleepHandler)
-	http.HandleFunc("/sleepms", sleepMsHandler)
-	http.HandleFunc("/largeresponse", largeResponseHandler)
-	http.HandleFunc("/sleepandlarge", sleepAndLargeResponseHandler)
-
+	unixSocketPath := "server.sock"
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
+	log.Print("Hello world sample started.")
+	mux := http.NewServeMux()
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	mux.HandleFunc("/", defaultHander)
+	mux.HandleFunc("/cpu", consumeCpuHandler)
+	mux.HandleFunc("/memory", allocateMemoryHandler)
+	mux.HandleFunc("/sleep", sleepHandler)
+	mux.HandleFunc("/sleepms", sleepMsHandler)
+	mux.HandleFunc("/largeresponse", largeResponseHandler)
+	mux.HandleFunc("/sleepandlarge", sleepAndLargeResponseHandler)
+
+	server := http.Server{Addr: ":8080", Handler: mux}
+	s := "123455"
+	f := s[0:1]
+	fmt.Printf("%s", f)
+	go func() {
+
+		l, err := net.Listen("unix", unixSocketPath)
+		if err != nil {
+			log.Printf("failed to listen to unix socket: %s\n", err)
+			return
+		}
+		if err := http.Serve(l, mux); err != nil {
+			log.Printf("serving failed on unix socket: %s\n", err)
+		}
+	}()
+	log.Fatal(server.ListenAndServe())
 }
